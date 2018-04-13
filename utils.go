@@ -57,14 +57,18 @@ func tokenToString(token *Token) (output string) {
 //
 // 搜索模式主要用于给搜索引擎提供尽可能多的关键字，详情请见Token结构体的注释。
 
-func SegmentsToSlice(segs []Segment, searchMode bool) (output []string) {
+func SegmentsToSlice(segs []Segment, searchMode bool, hasSpace bool) (output []string) {
 	if searchMode {
 		for _, seg := range segs {
 			output = append(output, tokenToSlice(seg.token)...)
 		}
 	} else {
 		for _, seg := range segs {
-			output = append(output, seg.token.Text())
+			if hasSpace {
+				output = append(output, seg.token.TextWithSpace())
+			} else {
+				output = append(output, seg.token.Text())
+			}
 		}
 	}
 	return
@@ -91,6 +95,19 @@ func textSliceToString(text []Text) string {
 	var output string
 	for _, word := range text {
 		output += string(word)
+	}
+	return output
+}
+
+// 将多个字元拼接一个字符串输出
+func textSliceToStringWithSpace(text []Text) string {
+	var output string
+	for i, word := range text {
+		if i == 0 {
+			output += string(word)
+		} else {
+			output += " " + string(word)
+		}
 	}
 	return output
 }

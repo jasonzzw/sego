@@ -31,6 +31,11 @@ func (token *Token) Text() string {
 	return textSliceToString(token.text)
 }
 
+// 返回分词文本
+func (token *Token) TextWithSpace() string {
+	return textSliceToStringWithSpace(token.text)
+}
+
 // 返回分词在语料库中的词频
 func (token *Token) Frequency() int {
 	return token.frequency

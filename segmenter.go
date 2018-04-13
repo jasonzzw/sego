@@ -19,7 +19,8 @@ const (
 
 // 分词器结构体
 type Segmenter struct {
-	dict *Dictionary
+	dict     *Dictionary
+	HasSpace bool
 }
 
 // 该结构体用于记录Viterbi算法中某字元处的向前分词跳转信息
@@ -58,22 +59,44 @@ func (seg *Segmenter) LoadDictionary(files string) {
 		var pos string
 
 		// 逐行读入分词
-		for {
-			size, _ := fmt.Fscanln(reader, &text, &freqText, &pos)
 
-			if size == 0 {
-				// 文件结束
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
 				break
-			} else if size < 2 {
-				// 无效行
-				continue
-			} else if size == 2 {
-				// 没有词性标注时设为空字符串
-				pos = ""
+			}
+
+			var size int
+			if !seg.HasSpace {
+				size, _ = fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
+				if size == 0 {
+					// 文件结束
+					break
+				} else if size < 2 {
+					// 无效行
+					continue
+				} else if size == 2 {
+					// 没有词性标注时设为空字符串
+					pos = ""
+				}
+			} else {
+				tokens := strings.Split(line, "\t")
+				if len(tokens) == 0 {
+					// 文件结束
+					break
+				} else if len(tokens) < 2 {
+					// 无效行
+					continue
+				} else if len(tokens) == 2 {
+					// 没有词性标注时设为空字符串
+					pos = ""
+				}
+				text = tokens[0]
+				freqText = tokens[1]
+				pos = tokens[2]
 			}
 
 			// 解析词频
-			var err error
 			frequency, err = strconv.Atoi(freqText)
 			if err != nil {
 				continue
@@ -85,7 +108,7 @@ func (seg *Segmenter) LoadDictionary(files string) {
 			}
 
 			// 将分词添加到字典中
-			words := splitTextToWords([]byte(text))
+			words := splitTextToWords([]byte(text), seg.HasSpace)
 			token := Token{text: words, frequency: frequency, pos: pos}
 			seg.dict.addToken(token)
 		}
@@ -143,7 +166,7 @@ func (seg *Segmenter) internalSegment(bytes []byte, searchMode bool) []Segment {
 	}
 
 	// 划分字元
-	text := splitTextToWords(bytes)
+	text := splitTextToWords(bytes, seg.HasSpace)
 
 	return seg.segmentWords(text, searchMode)
 }
@@ -244,7 +267,33 @@ func maxInt(a, b int) int {
 }
 
 // 将文本划分成字元
-func splitTextToWords(text Text) []Text {
+func splitTextToWords(text Text, bySpace bool) []Text {
+	if bySpace {
+		//if by space
+		output := []Text{}
+		rs := []rune(string(text))
+		start := 0
+		inWord := false
+		for i, r := range rs {
+			if r == ' ' {
+				if inWord {
+					output = append(output, []byte(string(rs[start:i])))
+					inWord = false
+				}
+				//skip
+			} else {
+				if !inWord {
+					start = i
+					inWord = true
+				}
+				//already in word, do nothing
+			}
+		}
+		if inWord {
+			output = append(output, []byte(string(rs[start:len(rs)])))
+		}
+		return output
+	}
 	output := make([]Text, 0, len(text)/3)
 	current := 0
 	inAlphanumeric := true
