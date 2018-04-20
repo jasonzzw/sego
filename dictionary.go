@@ -1,6 +1,8 @@
 package sego
 
-import "github.com/adamzy/cedar-go"
+import (
+	"github.com/adamzy/cedar-go"
+)
 
 // Dictionary结构体实现了一个字串前缀树，一个分词可能出现在叶子节点也有可能出现在非叶节点
 type Dictionary struct {
@@ -30,8 +32,13 @@ func (dict *Dictionary) TotalFrequency() int64 {
 }
 
 // 向词典中加入一个分词
-func (dict *Dictionary) addToken(token Token) {
-	bytes := textSliceToBytes(token.text)
+func (dict *Dictionary) addToken(token Token, hasSpace bool) {
+	var bytes []byte
+	if hasSpace {
+		bytes = textSliceToBytesWithSpace(token.text)
+	} else {
+		bytes = textSliceToBytes(token.text)
+	}
 	_, err := dict.trie.Get(bytes)
 	if err == nil {
 		return
@@ -47,11 +54,16 @@ func (dict *Dictionary) addToken(token Token) {
 
 // 在词典中查找和字元组words可以前缀匹配的所有分词
 // 返回值为找到的分词数
-func (dict *Dictionary) lookupTokens(words []Text, tokens []*Token) (numOfTokens int) {
+func (dict *Dictionary) lookupTokens(words []Text, tokens []*Token, hasSpace bool) (numOfTokens int) {
 	var id, value int
 	var err error
-	for _, word := range words {
-		id, err = dict.trie.Jump(word, id)
+	for idx, word := range words {
+		if idx != 0 && hasSpace {
+			id, err = dict.trie.Jump(append([]byte(" "), word...), id)
+		} else {
+			id, err = dict.trie.Jump(word, id)
+		}
+
 		if err != nil {
 			break
 		}

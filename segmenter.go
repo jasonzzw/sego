@@ -110,7 +110,7 @@ func (seg *Segmenter) LoadDictionary(files string) {
 			// 将分词添加到字典中
 			words := splitTextToWords([]byte(text), seg.HasSpace)
 			token := Token{text: words, frequency: frequency, pos: pos}
-			seg.dict.addToken(token)
+			seg.dict.addToken(token, seg.HasSpace)
 		}
 	}
 
@@ -155,6 +155,7 @@ func (seg *Segmenter) LoadDictionary(files string) {
 //
 // 输出：
 //	[]Segment	划分的分词
+
 func (seg *Segmenter) Segment(bytes []byte) []Segment {
 	return seg.internalSegment(bytes, false)
 }
@@ -194,11 +195,13 @@ func (seg *Segmenter) segmentWords(text []Text, searchMode bool) []Segment {
 
 		// 寻找所有以当前字元开头的分词
 		numTokens := seg.dict.lookupTokens(
-			text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens)
+			text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens, seg.HasSpace)
 
 		// 对所有可能的分词，更新分词结束字元处的跳转信息
+		//fmt.Printf("new_seg: %s, len=%d\n", textSliceToBytes(text), len(text))
 		for iToken := 0; iToken < numTokens; iToken++ {
 			location := current + len(tokens[iToken].text) - 1
+			//fmt.Printf("%s, cur=%d, location=%d, len=%d\n", textSliceToBytes(tokens[iToken].text), current, location, len(tokens[iToken].text))
 			if !searchMode || current != 0 || location != len(text)-1 {
 				updateJumper(&jumpers[location], baseDistance, tokens[iToken])
 			}

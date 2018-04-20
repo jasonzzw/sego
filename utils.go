@@ -57,15 +57,15 @@ func tokenToString(token *Token) (output string) {
 //
 // 搜索模式主要用于给搜索引擎提供尽可能多的关键字，详情请见Token结构体的注释。
 
-func SegmentsToSlice(segs []Segment, searchMode bool, hasSpace bool) (output []string) {
+func SegmentsToSlice(segs []Segment, searchMode bool, joint string) (output []string) {
 	if searchMode {
 		for _, seg := range segs {
 			output = append(output, tokenToSlice(seg.token)...)
 		}
 	} else {
 		for _, seg := range segs {
-			if hasSpace {
-				output = append(output, seg.token.TextWithSpace())
+			if joint != "" {
+				output = append(output, seg.token.TextWithSpace(joint))
 			} else {
 				output = append(output, seg.token.Text())
 			}
@@ -100,13 +100,13 @@ func textSliceToString(text []Text) string {
 }
 
 // 将多个字元拼接一个字符串输出
-func textSliceToStringWithSpace(text []Text) string {
+func textSliceToStringWithSpace(text []Text, joint string) string {
 	var output string
 	for i, word := range text {
 		if i == 0 {
 			output += string(word)
 		} else {
-			output += " " + string(word)
+			output += joint + string(word)
 		}
 	}
 	return output
@@ -124,6 +124,19 @@ func textSliceToBytes(text []Text) []byte {
 	var buf bytes.Buffer
 	for _, word := range text {
 		buf.Write(word)
+	}
+	return buf.Bytes()
+}
+
+func textSliceToBytesWithSpace(text []Text) []byte {
+	var buf bytes.Buffer
+	for i, word := range text {
+		if i == 0 {
+			buf.Write(word)
+		} else {
+			buf.Write([]byte(" "))
+			buf.Write(word)
+		}
 	}
 	return buf.Bytes()
 }

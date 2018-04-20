@@ -32,8 +32,8 @@ func (token *Token) Text() string {
 }
 
 // 返回分词文本
-func (token *Token) TextWithSpace() string {
-	return textSliceToStringWithSpace(token.text)
+func (token *Token) TextWithSpace(joint string) string {
+	return textSliceToStringWithSpace(token.text, joint)
 }
 
 // 返回分词在语料库中的词频
