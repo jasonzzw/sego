@@ -19,8 +19,8 @@ const (
 
 // 分词器结构体
 type Segmenter struct {
-	dict     *Dictionary
-	HasSpace bool
+	dict   *Dictionary
+	Phrase bool
 }
 
 // 该结构体用于记录Viterbi算法中某字元处的向前分词跳转信息
@@ -66,34 +66,16 @@ func (seg *Segmenter) LoadDictionary(files string) {
 				break
 			}
 
-			var size int
-			if !seg.HasSpace {
-				size, _ = fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
-				if size == 0 {
-					// 文件结束
-					break
-				} else if size < 2 {
-					// 无效行
-					continue
-				} else if size == 2 {
-					// 没有词性标注时设为空字符串
-					pos = ""
-				}
-			} else {
-				tokens := strings.Split(line, "\t")
-				if len(tokens) == 0 {
-					// 文件结束
-					break
-				} else if len(tokens) < 2 {
-					// 无效行
-					continue
-				} else if len(tokens) == 2 {
-					// 没有词性标注时设为空字符串
-					pos = ""
-				}
-				text = tokens[0]
-				freqText = tokens[1]
-				pos = tokens[2]
+			size, _ := fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
+			if size == 0 {
+				// 文件结束
+				break
+			} else if size < 2 {
+				// 无效行
+				continue
+			} else if size == 2 {
+				// 没有词性标注时设为空字符串
+				pos = ""
 			}
 
 			// 解析词频
@@ -108,9 +90,9 @@ func (seg *Segmenter) LoadDictionary(files string) {
 			}
 
 			// 将分词添加到字典中
-			words := splitTextToWords([]byte(text), seg.HasSpace)
+			words := splitTextToWords([]byte(text), seg.Phrase)
 			token := Token{text: words, frequency: frequency, pos: pos}
-			seg.dict.addToken(token, seg.HasSpace)
+			seg.dict.addToken(token, seg.Phrase)
 		}
 	}
 
@@ -167,7 +149,7 @@ func (seg *Segmenter) internalSegment(bytes []byte, searchMode bool) []Segment {
 	}
 
 	// 划分字元
-	text := splitTextToWords(bytes, seg.HasSpace)
+	text := splitTextToWords(bytes, seg.Phrase)
 
 	return seg.segmentWords(text, searchMode)
 }
@@ -195,7 +177,7 @@ func (seg *Segmenter) segmentWords(text []Text, searchMode bool) []Segment {
 
 		// 寻找所有以当前字元开头的分词
 		numTokens := seg.dict.lookupTokens(
-			text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens, seg.HasSpace)
+			text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens, seg.Phrase)
 
 		// 对所有可能的分词，更新分词结束字元处的跳转信息
 		//fmt.Printf("new_seg: %s, len=%d\n", textSliceToBytes(text), len(text))
@@ -270,15 +252,15 @@ func maxInt(a, b int) int {
 }
 
 // 将文本划分成字元
-func splitTextToWords(text Text, bySpace bool) []Text {
-	if bySpace {
-		//if by space
+func splitTextToWords(text Text, phrase bool) []Text {
+	if phrase {
+		//if phrase
 		output := []Text{}
 		rs := []rune(string(text))
 		start := 0
 		inWord := false
 		for i, r := range rs {
-			if r == ' ' {
+			if r == '-' {
 				if inWord {
 					output = append(output, []byte(string(rs[start:i])))
 					inWord = false

@@ -32,10 +32,10 @@ func (dict *Dictionary) TotalFrequency() int64 {
 }
 
 // 向词典中加入一个分词
-func (dict *Dictionary) addToken(token Token, hasSpace bool) {
+func (dict *Dictionary) addToken(token Token, phrase bool) {
 	var bytes []byte
-	if hasSpace {
-		bytes = textSliceToBytesWithSpace(token.text)
+	if phrase {
+		bytes = textSliceToBytesPhrase(token.text)
 	} else {
 		bytes = textSliceToBytes(token.text)
 	}
@@ -54,12 +54,12 @@ func (dict *Dictionary) addToken(token Token, hasSpace bool) {
 
 // 在词典中查找和字元组words可以前缀匹配的所有分词
 // 返回值为找到的分词数
-func (dict *Dictionary) lookupTokens(words []Text, tokens []*Token, hasSpace bool) (numOfTokens int) {
+func (dict *Dictionary) lookupTokens(words []Text, tokens []*Token, phrase bool) (numOfTokens int) {
 	var id, value int
 	var err error
 	for idx, word := range words {
-		if idx != 0 && hasSpace {
-			id, err = dict.trie.Jump(append([]byte(" "), word...), id)
+		if idx != 0 && phrase {
+			id, err = dict.trie.Jump(append([]byte("-"), word...), id)
 		} else {
 			id, err = dict.trie.Jump(word, id)
 		}

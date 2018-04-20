@@ -65,7 +65,7 @@ func SegmentsToSlice(segs []Segment, searchMode bool, joint string) (output []st
 	} else {
 		for _, seg := range segs {
 			if joint != "" {
-				output = append(output, seg.token.TextWithSpace(joint))
+				output = append(output, seg.token.TextOfPhrase(joint))
 			} else {
 				output = append(output, seg.token.Text())
 			}
@@ -100,7 +100,7 @@ func textSliceToString(text []Text) string {
 }
 
 // 将多个字元拼接一个字符串输出
-func textSliceToStringWithSpace(text []Text, joint string) string {
+func textSliceToStringPhrase(text []Text, joint string) string {
 	var output string
 	for i, word := range text {
 		if i == 0 {
@@ -128,13 +128,13 @@ func textSliceToBytes(text []Text) []byte {
 	return buf.Bytes()
 }
 
-func textSliceToBytesWithSpace(text []Text) []byte {
+func textSliceToBytesPhrase(text []Text) []byte {
 	var buf bytes.Buffer
 	for i, word := range text {
 		if i == 0 {
 			buf.Write(word)
 		} else {
-			buf.Write([]byte(" "))
+			buf.Write([]byte("-"))
 			buf.Write(word)
 		}
 	}
