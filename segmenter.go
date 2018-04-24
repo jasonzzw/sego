@@ -29,6 +29,12 @@ type jumper struct {
 	token       *Token
 }
 
+type LoadConfig struct {
+	Files   string
+	PreLoad bool
+	PreDict map[string]string
+}
+
 // 返回分词器使用的词典
 func (seg *Segmenter) Dictionary() *Dictionary {
 	return seg.dict
@@ -42,35 +48,67 @@ func (seg *Segmenter) Dictionary() *Dictionary {
 //
 // 词典的格式为（每个分词一行）：
 //	分词文本 频率 词性
-func (seg *Segmenter) LoadDictionary(files string) {
+func (seg *Segmenter) LoadDictionary(conf *LoadConfig) {
 	seg.dict = NewDictionary()
-	for _, file := range strings.Split(files, ",") {
-		log.Printf("载入sego词典 %s", file)
-		dictFile, err := os.Open(file)
-		defer dictFile.Close()
-		if err != nil {
-			log.Fatalf("无法载入字典文件 \"%s\" \n", file)
-		}
-
-		reader := bufio.NewReader(dictFile)
-		var text string
-		var freqText string
-		var frequency int
-		var pos string
-
-		// 逐行读入分词
-
-		for {
-			line, err := reader.ReadString('\n')
+	if conf.PreLoad == false {
+		for _, file := range strings.Split(conf.Files, ",") {
+			log.Printf("loading sego dictionary %s", file)
+			dictFile, err := os.Open(file)
+			defer dictFile.Close()
 			if err != nil {
-				break
+				log.Fatalf("cannot load sego dictionary \"%s\" \n", file)
 			}
 
-			size, _ := fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
-			if size == 0 {
-				// 文件结束
-				break
-			} else if size < 2 {
+			reader := bufio.NewReader(dictFile)
+			var text string
+			var freqText string
+			var frequency int
+			var pos string
+
+			// 逐行读入分词
+
+			for {
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					break
+				}
+
+				size, _ := fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
+				if size == 0 {
+					// 文件结束
+					break
+				} else if size < 2 {
+					// 无效行
+					continue
+				} else if size == 2 {
+					// 没有词性标注时设为空字符串
+					pos = ""
+				}
+
+				// 解析词频
+				frequency, err = strconv.Atoi(freqText)
+				if err != nil {
+					continue
+				}
+
+				// 过滤频率太小的词
+				if frequency < minTokenFrequency {
+					continue
+				}
+
+				// 将分词添加到字典中
+				words := splitTextToWords([]byte(text), seg.Phrase)
+				token := Token{text: words, frequency: frequency, pos: pos}
+				seg.dict.addToken(token, seg.Phrase)
+			}
+		}
+	} else if conf.PreDict != nil {
+		var text string
+		var freqText string
+		var pos string
+		for cand, v := range conf.PreDict {
+			size, _ := fmt.Sscanf(v, "%s %s %s\n", &text, &freqText, &pos)
+			if size < 2 {
 				// 无效行
 				continue
 			} else if size == 2 {
@@ -79,7 +117,7 @@ func (seg *Segmenter) LoadDictionary(files string) {
 			}
 
 			// 解析词频
-			frequency, err = strconv.Atoi(freqText)
+			frequency, err := strconv.Atoi(freqText)
 			if err != nil {
 				continue
 			}
@@ -90,7 +128,7 @@ func (seg *Segmenter) LoadDictionary(files string) {
 			}
 
 			// 将分词添加到字典中
-			words := splitTextToWords([]byte(text), seg.Phrase)
+			words := splitTextToWords([]byte(cand), seg.Phrase)
 			token := Token{text: words, frequency: frequency, pos: pos}
 			seg.dict.addToken(token, seg.Phrase)
 		}
@@ -127,7 +165,7 @@ func (seg *Segmenter) LoadDictionary(files string) {
 		}
 	}
 
-	log.Println("sego词典载入完毕")
+	log.Println("sego dictionary loading complete")
 }
 
 // 对文本分词
