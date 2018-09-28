@@ -104,30 +104,6 @@ func (seg *Segmenter) LoadDictionary(files string) {
 		token.distance = logTotalFrequency - float32(math.Log2(float64(token.frequency)))
 	}
 
-	// 对每个分词进行细致划分，用于搜索引擎模式，该模式用法见Token结构体的注释。
-	for i := range seg.dict.tokens {
-		token := &seg.dict.tokens[i]
-		segments := seg.segmentWords(token.text, true)
-
-		// 计算需要添加的子分词数目
-		numTokensToAdd := 0
-		for iToken := 0; iToken < len(segments); iToken++ {
-			if len(segments[iToken].token.text) > 0 {
-				numTokensToAdd++
-			}
-		}
-		token.segments = make([]*Segment, numTokensToAdd)
-
-		// 添加子分词
-		iSegmentsToAdd := 0
-		for iToken := 0; iToken < len(segments); iToken++ {
-			if len(segments[iToken].token.text) > 0 {
-				token.segments[iSegmentsToAdd] = &segments[iToken]
-				iSegmentsToAdd++
-			}
-		}
-	}
-
 	log.Println("sego dictionary loading complete")
 }
 
@@ -170,30 +146,6 @@ func (seg *Segmenter) LoadPreLoadDictionary(preDict map[string]string) {
 		token.distance = logTotalFrequency - float32(math.Log2(float64(token.frequency)))
 	}
 
-	// 对每个分词进行细致划分，用于搜索引擎模式，该模式用法见Token结构体的注释。
-	for i := range seg.dict.tokens {
-		token := &seg.dict.tokens[i]
-		segments := seg.segmentWords(token.text, true)
-
-		// 计算需要添加的子分词数目
-		numTokensToAdd := 0
-		for iToken := 0; iToken < len(segments); iToken++ {
-			if len(segments[iToken].token.text) > 0 {
-				numTokensToAdd++
-			}
-		}
-		token.segments = make([]*Segment, numTokensToAdd)
-
-		// 添加子分词
-		iSegmentsToAdd := 0
-		for iToken := 0; iToken < len(segments); iToken++ {
-			if len(segments[iToken].token.text) > 0 {
-				token.segments[iSegmentsToAdd] = &segments[iToken]
-				iSegmentsToAdd++
-			}
-		}
-	}
-
 	log.Println("sego dictionary loading complete")
 }
 
@@ -205,26 +157,26 @@ func (seg *Segmenter) LoadPreLoadDictionary(preDict map[string]string) {
 // 输出：
 //	[]Segment	划分的分词
 
-func (seg *Segmenter) Segment(bytes []byte) []Segment {
-	return seg.internalSegment(bytes, false)
+func (seg *Segmenter) Segment(bytes []byte, joint string) []string {
+	return seg.internalSegment(bytes, joint, false)
 }
 
-func (seg *Segmenter) internalSegment(bytes []byte, searchMode bool) []Segment {
+func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode bool) []string {
 	// 处理特殊情况
 	if len(bytes) == 0 {
-		return []Segment{}
+		return []string{}
 	}
 
 	// 划分字元
 	text := splitTextToWords(bytes, seg.Phrase)
 
-	return seg.segmentWords(text, searchMode)
+	return seg.segmentWords(text, joint, searchMode)
 }
 
-func (seg *Segmenter) segmentWords(text []Text, searchMode bool) []Segment {
+func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool) []string {
 	// 搜索模式下该分词已无继续划分可能的情况
 	if searchMode && len(text) == 1 {
-		return []Segment{}
+		return []string{}
 	}
 
 	// jumpers定义了每个字元处的向前跳转信息，包括这个跳转对应的分词，
@@ -272,22 +224,18 @@ func (seg *Segmenter) segmentWords(text []Text, searchMode bool) []Segment {
 	}
 
 	// 从后向前扫描第二遍添加分词到最终结果
-	outputSegments := make([]Segment, numSeg)
+	outputStrings := make([]string, numSeg)
 	for index := len(text) - 1; index >= 0; {
 		location := index - len(jumpers[index].token.text) + 1
 		numSeg--
-		outputSegments[numSeg].token = jumpers[index].token
+		if joint == "" {
+			outputStrings[numSeg] = jumpers[index].token.Text()
+		} else {
+			outputStrings[numSeg] = jumpers[index].token.TextOfPhrase(joint)
+		}
 		index = location - 1
 	}
-
-	// 计算各个分词的字节位置
-	bytePosition := 0
-	for iSeg := 0; iSeg < len(outputSegments); iSeg++ {
-		outputSegments[iSeg].start = bytePosition
-		bytePosition += textSliceByteLength(outputSegments[iSeg].token.text)
-		outputSegments[iSeg].end = bytePosition
-	}
-	return outputSegments
+	return outputStrings
 }
 
 // 更新跳转信息:
