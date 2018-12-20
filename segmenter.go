@@ -161,6 +161,10 @@ func (seg *Segmenter) Segment(bytes []byte, joint string) []string {
 	return seg.internalSegment(bytes, joint, false)
 }
 
+func (seg *Segmenter) SegmentEnglish(bytes []byte, joint string) []string {
+	return seg.internalEnglishSegment(bytes, joint, false)
+}
+
 func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode bool) []string {
 	// 处理特殊情况
 	if len(bytes) == 0 {
@@ -169,6 +173,18 @@ func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode boo
 
 	// 划分字元
 	text := splitTextToWords(bytes, seg.Phrase)
+
+	return seg.segmentWords(text, joint, searchMode)
+}
+
+func (seg *Segmenter) internalEnglishSegment(bytes []byte, joint string, searchMode bool) []string {
+	// 处理特殊情况
+	if len(bytes) == 0 {
+		return []string{}
+	}
+
+	// 划分字元
+	text := splitEnglishTextToWords(bytes, seg.Phrase)
 
 	return seg.segmentWords(text, joint, searchMode)
 }
@@ -301,6 +317,67 @@ func splitTextToWords(text Text, phrase bool) []Text {
 	for current < len(text) {
 		r, size := utf8.DecodeRune(text[current:])
 		if size <= 2 && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
+			// 当前是拉丁字母或数字（非中日韩文字）
+			if !inAlphanumeric {
+				alphanumericStart = current
+				inAlphanumeric = true
+			}
+		} else {
+			if inAlphanumeric {
+				inAlphanumeric = false
+				if current != 0 {
+					output = append(output, toLower(text[alphanumericStart:current]))
+				}
+			}
+			output = append(output, text[current:current+size])
+		}
+		current += size
+	}
+
+	// 处理最后一个字元是英文的情况
+	if inAlphanumeric {
+		if current != 0 {
+			output = append(output, toLower(text[alphanumericStart:current]))
+		}
+	}
+
+	return output
+}
+
+func splitEnglishTextToWords(text Text, phrase bool) []Text {
+	if phrase {
+		//if phrase
+		output := []Text{}
+		rs := []rune(string(text))
+		start := 0
+		inWord := false
+		for i, r := range rs {
+			if r == '-' {
+				if inWord {
+					output = append(output, []byte(string(rs[start:i])))
+					inWord = false
+				}
+				//skip
+			} else {
+				if !inWord {
+					start = i
+					inWord = true
+				}
+				//already in word, do nothing
+			}
+		}
+		if inWord {
+			output = append(output, []byte(string(rs[start:len(rs)])))
+		}
+		return output
+	}
+	output := make([]Text, 0, len(text)/3)
+	current := 0
+	inAlphanumeric := true
+	alphanumericStart := 0
+	for current < len(text) {
+		r, size := utf8.DecodeRune(text[current:])
+		if size <= 2 && (unicode.IsNumber(r)) {
 			// 当前是拉丁字母或数字（非中日韩文字）
 			if !inAlphanumeric {
 				alphanumericStart = current
