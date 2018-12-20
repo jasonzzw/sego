@@ -269,7 +269,6 @@ func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool) [
 
 	tokens := make([]*Token, seg.dict.maxTokenLength)
 	for current := 0; current < len(text); current++ {
-
 		// 找到前一个字元处的最短路径，以便计算后续路径值
 		var baseDistance float32
 		if current == 0 {
