@@ -107,6 +107,74 @@ func (seg *Segmenter) LoadDictionary(files string) {
 	log.Println("sego dictionary loading complete")
 }
 
+// For segmenting English Word
+func (seg *Segmenter) LoadEnglishDictionary(files string) {
+	seg.dict = NewDictionary()
+
+	for _, file := range strings.Split(files, ",") {
+		log.Printf("loading sego dictionary %s", file)
+		dictFile, err := os.Open(file)
+		defer dictFile.Close()
+		if err != nil {
+			log.Fatalf("cannot load sego dictionary \"%s\" \n", file)
+		}
+
+		reader := bufio.NewReader(dictFile)
+		var text string
+		var freqText string
+		var frequency int
+		var pos string
+
+		// 逐行读入分词
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+
+			size, _ := fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
+			if size == 0 {
+				// 文件结束
+				break
+			} else if size < 2 {
+				// 无效行
+				continue
+			} else if size == 2 {
+				// 没有词性标注时设为空字符串
+				pos = ""
+			}
+
+			// 解析词频
+			frequency, err = strconv.Atoi(freqText)
+			if err != nil {
+				continue
+			}
+
+			// 过滤频率太小的词
+			if frequency < minTokenFrequency {
+				continue
+			}
+
+			text = strings.ToLower(text)
+
+			// 将分词添加到字典中
+			words := splitEnglishTextToWords([]byte(text), seg.Phrase)
+			token := Token{text: words, frequency: frequency, pos: pos}
+			seg.dict.addToken(token, seg.Phrase)
+		}
+	}
+
+	// 计算每个分词的路径值，路径值含义见Token结构体的注释
+	logTotalFrequency := float32(math.Log2(float64(seg.dict.totalFrequency)))
+	for i := range seg.dict.tokens {
+		token := &seg.dict.tokens[i]
+		token.distance = logTotalFrequency - float32(math.Log2(float64(token.frequency)))
+	}
+
+	log.Println("sego dictionary loading complete")
+}
+
 func (seg *Segmenter) LoadPreLoadDictionary(preDict map[string]string) {
 	seg.dict = NewDictionary()
 	var text string
@@ -201,6 +269,7 @@ func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool) [
 
 	tokens := make([]*Token, seg.dict.maxTokenLength)
 	for current := 0; current < len(text); current++ {
+
 		// 找到前一个字元处的最短路径，以便计算后续路径值
 		var baseDistance float32
 		if current == 0 {
