@@ -107,6 +107,74 @@ func (seg *Segmenter) LoadDictionary(files string) {
 	log.Println("sego dictionary loading complete")
 }
 
+// For segmenting English Word
+func (seg *Segmenter) LoadEnglishDictionary(files string) {
+	seg.dict = NewDictionary()
+
+	for _, file := range strings.Split(files, ",") {
+		log.Printf("loading sego dictionary %s", file)
+		dictFile, err := os.Open(file)
+		defer dictFile.Close()
+		if err != nil {
+			log.Fatalf("cannot load sego dictionary \"%s\" \n", file)
+		}
+
+		reader := bufio.NewReader(dictFile)
+		var text string
+		var freqText string
+		var frequency int
+		var pos string
+
+		// 逐行读入分词
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				break
+			}
+
+			size, _ := fmt.Sscanf(line, "%s %s %s\n", &text, &freqText, &pos)
+			if size == 0 {
+				// 文件结束
+				break
+			} else if size < 2 {
+				// 无效行
+				continue
+			} else if size == 2 {
+				// 没有词性标注时设为空字符串
+				pos = ""
+			}
+
+			// 解析词频
+			frequency, err = strconv.Atoi(freqText)
+			if err != nil {
+				continue
+			}
+
+			// 过滤频率太小的词
+			if frequency < minTokenFrequency {
+				continue
+			}
+
+			text = strings.ToLower(text)
+
+			// 将分词添加到字典中
+			words := splitEnglishTextToWords([]byte(text), seg.Phrase)
+			token := Token{text: words, frequency: frequency, pos: pos}
+			seg.dict.addToken(token, seg.Phrase)
+		}
+	}
+
+	// 计算每个分词的路径值，路径值含义见Token结构体的注释
+	logTotalFrequency := float32(math.Log2(float64(seg.dict.totalFrequency)))
+	for i := range seg.dict.tokens {
+		token := &seg.dict.tokens[i]
+		token.distance = logTotalFrequency - float32(math.Log2(float64(token.frequency)))
+	}
+
+	log.Println("sego dictionary loading complete")
+}
+
 func (seg *Segmenter) LoadPreLoadDictionary(preDict map[string]string) {
 	seg.dict = NewDictionary()
 	var text string
@@ -161,6 +229,10 @@ func (seg *Segmenter) Segment(bytes []byte, joint string) []string {
 	return seg.internalSegment(bytes, joint, false)
 }
 
+func (seg *Segmenter) SegmentEnglish(bytes []byte, joint string) []string {
+	return seg.internalEnglishSegment(bytes, joint, false)
+}
+
 func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode bool) []string {
 	// 处理特殊情况
 	if len(bytes) == 0 {
@@ -169,6 +241,18 @@ func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode boo
 
 	// 划分字元
 	text := splitTextToWords(bytes, seg.Phrase)
+
+	return seg.segmentWords(text, joint, searchMode)
+}
+
+func (seg *Segmenter) internalEnglishSegment(bytes []byte, joint string, searchMode bool) []string {
+	// 处理特殊情况
+	if len(bytes) == 0 {
+		return []string{}
+	}
+
+	// 划分字元
+	text := splitEnglishTextToWords(bytes, seg.Phrase)
 
 	return seg.segmentWords(text, joint, searchMode)
 }
@@ -301,6 +385,67 @@ func splitTextToWords(text Text, phrase bool) []Text {
 	for current < len(text) {
 		r, size := utf8.DecodeRune(text[current:])
 		if size <= 2 && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
+			// 当前是拉丁字母或数字（非中日韩文字）
+			if !inAlphanumeric {
+				alphanumericStart = current
+				inAlphanumeric = true
+			}
+		} else {
+			if inAlphanumeric {
+				inAlphanumeric = false
+				if current != 0 {
+					output = append(output, toLower(text[alphanumericStart:current]))
+				}
+			}
+			output = append(output, text[current:current+size])
+		}
+		current += size
+	}
+
+	// 处理最后一个字元是英文的情况
+	if inAlphanumeric {
+		if current != 0 {
+			output = append(output, toLower(text[alphanumericStart:current]))
+		}
+	}
+
+	return output
+}
+
+func splitEnglishTextToWords(text Text, phrase bool) []Text {
+	if phrase {
+		//if phrase
+		output := []Text{}
+		rs := []rune(string(text))
+		start := 0
+		inWord := false
+		for i, r := range rs {
+			if r == '-' {
+				if inWord {
+					output = append(output, []byte(string(rs[start:i])))
+					inWord = false
+				}
+				//skip
+			} else {
+				if !inWord {
+					start = i
+					inWord = true
+				}
+				//already in word, do nothing
+			}
+		}
+		if inWord {
+			output = append(output, []byte(string(rs[start:len(rs)])))
+		}
+		return output
+	}
+	output := make([]Text, 0, len(text)/3)
+	current := 0
+	inAlphanumeric := true
+	alphanumericStart := 0
+	for current < len(text) {
+		r, size := utf8.DecodeRune(text[current:])
+		if size <= 2 && (unicode.IsNumber(r)) {
 			// 当前是拉丁字母或数字（非中日韩文字）
 			if !inAlphanumeric {
 				alphanumericStart = current
