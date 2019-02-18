@@ -75,3 +75,25 @@ func (dict *Dictionary) lookupTokens(words []Text, tokens []*Token, phrase bool)
 	}
 	return
 }
+
+func (dict *Dictionary) lookupTokensExcept(words []Text, tokens []*Token, phrase bool, exclude string) (numOfTokens int) {
+	var id, value int
+	var err error
+	for idx, word := range words {
+		if idx != 0 && phrase {
+			id, err = dict.trie.Jump(append([]byte("-"), word...), id)
+		} else {
+			id, err = dict.trie.Jump(word, id)
+		}
+
+		if err != nil {
+			break
+		}
+		value, err = dict.trie.Value(id)
+		if err == nil && dict.tokens[value].Text() != exclude {
+			tokens[numOfTokens] = &dict.tokens[value]
+			numOfTokens++
+		}
+	}
+	return
+}

@@ -158,10 +158,14 @@ func (seg *Segmenter) LoadPreLoadDictionary(preDict map[string]string) {
 //	[]Segment	划分的分词
 
 func (seg *Segmenter) Segment(bytes []byte, joint string) []string {
-	return seg.internalSegment(bytes, joint, false)
+	return seg.internalSegment(bytes, joint, false, "")
 }
 
-func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode bool) []string {
+func (seg *Segmenter) SegmentExclude(bytes []byte, joint string, exclude string) []string {
+	return seg.internalSegment(bytes, joint, false, exclude)
+}
+
+func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode bool, exclude string) []string {
 	// 处理特殊情况
 	if len(bytes) == 0 {
 		return []string{}
@@ -170,10 +174,10 @@ func (seg *Segmenter) internalSegment(bytes []byte, joint string, searchMode boo
 	// 划分字元
 	text := splitTextToWords(bytes, seg.Phrase)
 
-	return seg.segmentWords(text, joint, searchMode)
+	return seg.segmentWords(text, joint, searchMode, exclude)
 }
 
-func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool) []string {
+func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool, exclude string) []string {
 	// 搜索模式下该分词已无继续划分可能的情况
 	if searchMode && len(text) == 1 {
 		return []string{}
@@ -195,9 +199,14 @@ func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool) [
 		}
 
 		// 寻找所有以当前字元开头的分词
-		numTokens := seg.dict.lookupTokens(
-			text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens, seg.Phrase)
-
+		numTokens := 0
+		if exclude == "" {
+			numTokens = seg.dict.lookupTokens(
+				text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens, seg.Phrase)
+		} else {
+			numTokens = seg.dict.lookupTokensExcept(
+				text[current:minInt(current+seg.dict.maxTokenLength, len(text))], tokens, seg.Phrase, exclude)
+		}
 		// 对所有可能的分词，更新分词结束字元处的跳转信息
 		//fmt.Printf("new_seg: %s, len=%d\n", textSliceToBytes(text), len(text))
 		for iToken := 0; iToken < numTokens; iToken++ {
