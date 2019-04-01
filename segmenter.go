@@ -293,7 +293,6 @@ func (seg *Segmenter) segmentWords(text []Text, joint string, searchMode bool, e
 		//fmt.Printf("new_seg: %s, len=%d\n", textSliceToBytes(text), len(text))
 		for iToken := 0; iToken < numTokens; iToken++ {
 			location := current + len(tokens[iToken].text) - 1
-			//fmt.Printf("%s, cur=%d, location=%d, len=%d\n", textSliceToBytes(tokens[iToken].text), current, location, len(tokens[iToken].text))
 			if !searchMode || current != 0 || location != len(text)-1 {
 				updateJumper(&jumpers[location], baseDistance, tokens[iToken])
 			}
@@ -357,6 +356,23 @@ func maxInt(a, b int) int {
 	return b
 }
 
+func checkFraction(prev *rune, cur rune, text Text, pos int) bool {
+	if prev == nil {
+		return false
+	}
+
+	if pos >= len(text) {
+		return false
+	}
+
+	r, _ := utf8.DecodeRune(text[pos:])
+	if (cur == '/' || cur == '.') && unicode.IsNumber(*prev) && unicode.IsNumber(r) {
+		return true
+	}
+
+	return false
+}
+
 // 将文本划分成字元
 func splitTextToWords(text Text, phrase bool) []Text {
 	if phrase {
@@ -389,9 +405,10 @@ func splitTextToWords(text Text, phrase bool) []Text {
 	current := 0
 	inAlphanumeric := true
 	alphanumericStart := 0
+	var prev *rune
 	for current < len(text) {
 		r, size := utf8.DecodeRune(text[current:])
-		if size <= 2 && (unicode.IsLetter(r) || unicode.IsNumber(r)) {
+		if size <= 2 && (unicode.IsLetter(r) || unicode.IsNumber(r) || checkFraction(prev, r, text, current+size)) {
 			// 当前是拉丁字母或数字（非中日韩文字）
 			if !inAlphanumeric {
 				alphanumericStart = current
@@ -407,6 +424,7 @@ func splitTextToWords(text Text, phrase bool) []Text {
 			output = append(output, text[current:current+size])
 		}
 		current += size
+		prev = &r
 	}
 
 	// 处理最后一个字元是英文的情况
