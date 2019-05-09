@@ -366,7 +366,7 @@ func checkFraction(prev *rune, cur rune, text Text, pos int) bool {
 	}
 
 	r, _ := utf8.DecodeRune(text[pos:])
-	if (cur == '/' || cur == '.') && unicode.IsNumber(*prev) && unicode.IsNumber(r) {
+	if cur == '.' && unicode.IsNumber(*prev) && unicode.IsNumber(r) {
 		return true
 	}
 
