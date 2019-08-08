@@ -356,7 +356,7 @@ func maxInt(a, b int) int {
 	return b
 }
 
-func checkFraction(prev *rune, cur rune, text Text, pos int) bool {
+func notSeparable(prev *rune, cur rune, text Text, pos int) bool {
 	if prev == nil {
 		return false
 	}
@@ -366,7 +366,8 @@ func checkFraction(prev *rune, cur rune, text Text, pos int) bool {
 	}
 
 	r, _ := utf8.DecodeRune(text[pos:])
-	if cur == '.' && unicode.IsNumber(*prev) && unicode.IsNumber(r) {
+	if ((cur == '.' || cur == '/') && unicode.IsNumber(*prev) && unicode.IsNumber(r)) ||
+		(cur == '\'' && unicode.IsLetter(*prev) && unicode.IsLetter(r)) {
 		return true
 	}
 
@@ -408,7 +409,8 @@ func splitTextToWords(text Text, phrase bool) []Text {
 	var prev *rune
 	for current < len(text) {
 		r, size := utf8.DecodeRune(text[current:])
-		if size <= 2 && (unicode.IsLetter(r) || unicode.IsNumber(r) || checkFraction(prev, r, text, current+size)) {
+		if size <= 2 && (unicode.IsLetter(r) || unicode.IsNumber(r) ||
+			notSeparable(prev, r, text, current+size)) {
 			// 当前是拉丁字母或数字（非中日韩文字）
 			if !inAlphanumeric {
 				alphanumericStart = current
