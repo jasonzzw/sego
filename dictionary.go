@@ -39,8 +39,13 @@ func (dict *Dictionary) addToken(token Token, phrase bool) {
 	} else {
 		bytes = textSliceToBytes(token.text)
 	}
-	_, err := dict.trie.Get(bytes)
+	value, err := dict.trie.Get(bytes)
 	if err == nil {
+		oldFreq := dict.tokens[value].frequency
+		if token.frequency > oldFreq {
+			dict.tokens[value].frequency = token.frequency
+			dict.totalFrequency += int64(token.frequency - oldFreq)
+		}
 		return
 	}
 
