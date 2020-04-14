@@ -217,6 +217,50 @@ func (seg *Segmenter) LoadPreLoadDictionary(preDict map[string]string) {
 	log.Println("sego dictionary loading complete")
 }
 
+func (seg *Segmenter) LoadPreLoadDictionaries(preDicts []map[string]string) {
+	seg.dict = NewDictionary()
+	for _, preDict := range preDicts {
+		var text string
+		var freqText string
+		var pos string
+		for cand, v := range preDict {
+			size, _ := fmt.Sscanf(v, "%s %s %s\n", &text, &freqText, &pos)
+			if size < 2 {
+				// 无效行
+				continue
+			} else if size == 2 {
+				// 没有词性标注时设为空字符串
+				pos = ""
+			}
+
+			// 解析词频
+			frequency, err := strconv.Atoi(freqText)
+			if err != nil {
+				continue
+			}
+
+			// 过滤频率太小的词
+			if frequency < minTokenFrequency {
+				continue
+			}
+
+			// 将分词添加到字典中
+			words := splitTextToWords([]byte(cand), seg.Phrase)
+			token := Token{text: words, frequency: frequency, pos: pos}
+			seg.dict.addToken(token, seg.Phrase)
+		}
+
+		// 计算每个分词的路径值，路径值含义见Token结构体的注释
+		logTotalFrequency := float32(math.Log2(float64(seg.dict.totalFrequency)))
+		for i := range seg.dict.tokens {
+			token := &seg.dict.tokens[i]
+			token.distance = logTotalFrequency - float32(math.Log2(float64(token.frequency)))
+		}
+	}
+
+	log.Println("sego dictionaries loading complete")
+}
+
 // 对文本分词
 //
 // 输入参数：
